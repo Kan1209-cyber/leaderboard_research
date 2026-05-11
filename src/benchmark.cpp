@@ -22,6 +22,10 @@ BSTNode* bstInsert(BSTNode* root, int rating, std::string handle) {
     bstUpdate(root);
     return root;
 }
+int bstHeight(BSTNode* root) {
+    if (!root) return 0;
+    return 1 + std::max(bstHeight(root->left), bstHeight(root->right));
+}
 int bstKthMax(BSTNode* root, int k) {
     BSTNode* cur = root;
     while (cur) {
@@ -31,6 +35,12 @@ int bstKthMax(BSTNode* root, int k) {
         else { k -= rs + 1; cur = cur->left; }
     }
     return -1;
+}
+void bstFree(BSTNode* root) {
+    if (!root) return;
+    bstFree(root->left);
+    bstFree(root->right);
+    delete root;
 }
 
 // ─── AVL ───────────────────────────────────────────────
@@ -78,6 +88,7 @@ AVLNode* avlInsert(AVLNode* root, int rating, std::string handle) {
     }
     return root;
 }
+int avlHeight(AVLNode* root) { return root ? root->height : 0; }
 int avlKthMax(AVLNode* root, int k) {
     AVLNode* cur = root;
     while (cur) {
@@ -87,6 +98,17 @@ int avlKthMax(AVLNode* root, int k) {
         else { k -= rs + 1; cur = cur->left; }
     }
     return -1;
+}
+void avlFree(AVLNode* root) {
+    if (!root) return;
+    avlFree(root->left);
+    avlFree(root->right);
+    delete root;
+}
+
+long long median(std::vector<long long> v) {
+    std::sort(v.begin(), v.end());
+    return v[v.size() / 2];
 }
 
 // ─── MAIN ──────────────────────────────────────────────
@@ -107,7 +129,7 @@ int main() {
     }
 
     std::ofstream out("results/benchmark.csv");
-    out << "N,structure,insert_ms,kthmax_us" << std::endl;
+    out << "N,structure,insert_ms,kthmax_us,height" << std::endl;
 
     std::vector<int> sizes = {1000, 5000, 10000, 50000, 100000};
 
@@ -115,33 +137,52 @@ int main() {
         std::cout << "Running N = " << N << std::endl;
         auto subset = std::vector<std::pair<std::string,int>>(users.begin(), users.begin() + N);
 
-        // BST
-        BSTNode* broot = nullptr;
-        auto s = std::chrono::high_resolution_clock::now();
-        for (auto& u : subset) broot = bstInsert(broot, u.second, u.first);
-        auto e = std::chrono::high_resolution_clock::now();
-        long long bInsert = std::chrono::duration_cast<std::chrono::milliseconds>(e - s).count();
+        std::vector<long long> bInsertRuns, bQueryRuns;
+        std::vector<long long> aInsertRuns, aQueryRuns;
 
-        s = std::chrono::high_resolution_clock::now();
-        for (int k = 1; k <= 1000; k++) bstKthMax(broot, k);
-        e = std::chrono::high_resolution_clock::now();
-        long long bQuery = std::chrono::duration_cast<std::chrono::microseconds>(e - s).count();
+        for (int run = 0; run < 10; run++) {
+            std::cout << "  Run " << run+1 << "/10" << std::endl;
 
-        out << N << ",BST," << bInsert << "," << bQuery << std::endl;
+            // BST
+            BSTNode* broot = nullptr;
+            auto s = std::chrono::high_resolution_clock::now();
+            for (auto& u : subset) broot = bstInsert(broot, u.second, u.first);
+            auto e = std::chrono::high_resolution_clock::now();
+            bInsertRuns.push_back(std::chrono::duration_cast<std::chrono::milliseconds>(e - s).count());
 
-        // AVL
-        AVLNode* aroot = nullptr;
-        s = std::chrono::high_resolution_clock::now();
-        for (auto& u : subset) aroot = avlInsert(aroot, u.second, u.first);
-        e = std::chrono::high_resolution_clock::now();
-        long long aInsert = std::chrono::duration_cast<std::chrono::milliseconds>(e - s).count();
+            s = std::chrono::high_resolution_clock::now();
+            for (int k = 1; k <= 1000; k++) bstKthMax(broot, k);
+            e = std::chrono::high_resolution_clock::now();
+            bQueryRuns.push_back(std::chrono::duration_cast<std::chrono::microseconds>(e - s).count());
+            bstFree(broot);
 
-        s = std::chrono::high_resolution_clock::now();
-        for (int k = 1; k <= 1000; k++) avlKthMax(aroot, k);
-        e = std::chrono::high_resolution_clock::now();
-        long long aQuery = std::chrono::duration_cast<std::chrono::microseconds>(e - s).count();
+            // AVL
+            AVLNode* aroot = nullptr;
+            s = std::chrono::high_resolution_clock::now();
+            for (auto& u : subset) aroot = avlInsert(aroot, u.second, u.first);
+            e = std::chrono::high_resolution_clock::now();
+            aInsertRuns.push_back(std::chrono::duration_cast<std::chrono::milliseconds>(e - s).count());
 
-        out << N << ",AVL," << aInsert << "," << aQuery << std::endl;
+            s = std::chrono::high_resolution_clock::now();
+            for (int k = 1; k <= 1000; k++) avlKthMax(aroot, k);
+            e = std::chrono::high_resolution_clock::now();
+            aQueryRuns.push_back(std::chrono::duration_cast<std::chrono::microseconds>(e - s).count());
+            avlFree(aroot);
+        }
+
+        // build once for height
+        BSTNode* broot2 = nullptr;
+        for (auto& u : subset) broot2 = bstInsert(broot2, u.second, u.first);
+        int bHeight = bstHeight(broot2);
+        bstFree(broot2);
+
+        AVLNode* aroot2 = nullptr;
+        for (auto& u : subset) aroot2 = avlInsert(aroot2, u.second, u.first);
+        int aHeight = avlHeight(aroot2);
+        avlFree(aroot2);
+
+        out << N << ",BST," << median(bInsertRuns) << "," << median(bQueryRuns) << "," << bHeight << std::endl;
+        out << N << ",AVL," << median(aInsertRuns) << "," << median(aQueryRuns) << "," << aHeight << std::endl;
     }
 
     std::cout << "Done. Results saved to results/benchmark.csv" << std::endl;
