@@ -226,7 +226,7 @@ int main() {
     }
 
     std::ofstream out("results/benchmark.csv");
-    out << "N,structure,data_order,insert_ms,kthmax_us,height" << std::endl;
+    out << "N,structure,data_order,insert_ms,kthmax_ns,height" << std::endl;
 
     std::vector<int> sizes = {1000, 5000, 10000, 50000, 100000};
     std::vector<std::string> orders = {"original", "ascending", "descending"};
@@ -255,7 +255,7 @@ int main() {
                 s = std::chrono::high_resolution_clock::now();
                 for (int k = 1; k <= 1000; k++) bstKthMax(broot, k);
                 e = std::chrono::high_resolution_clock::now();
-                bQry.push_back(std::chrono::duration_cast<std::chrono::microseconds>(e-s).count());
+                bQry.push_back(std::chrono::duration_cast<std::chrono::nanoseconds>(e-s).count());
                 bstFree(broot);
 
                 // AVL
@@ -267,7 +267,7 @@ int main() {
                 s = std::chrono::high_resolution_clock::now();
                 for (int k = 1; k <= 1000; k++) avlKthMax(aroot, k);
                 e = std::chrono::high_resolution_clock::now();
-                aQry.push_back(std::chrono::duration_cast<std::chrono::microseconds>(e-s).count());
+                aQry.push_back(std::chrono::duration_cast<std::chrono::nanoseconds>(e-s).count());
                 avlFree(aroot);
 
                 // Skip List
@@ -279,7 +279,7 @@ int main() {
                 s = std::chrono::high_resolution_clock::now();
                 for (int k = 1; k <= 1000; k++) sl.kthMax(k);
                 e = std::chrono::high_resolution_clock::now();
-                sQry.push_back(std::chrono::duration_cast<std::chrono::microseconds>(e-s).count());
+                sQry.push_back(std::chrono::duration_cast<std::chrono::nanoseconds>(e-s).count());
                 sl.freeAll();
             }
 
