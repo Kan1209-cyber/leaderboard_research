@@ -1,0 +1,16 @@
+N,structure,data_order,insert_ms,kthmax_us,height
+1000,SkipList,original,0,0,9
+1000,SkipList,ascending,0,0,8
+1000,SkipList,descending,0,0,11
+5000,SkipList,original,1,0,13
+5000,SkipList,ascending,0,0,10
+5000,SkipList,descending,1,0,12
+10000,SkipList,original,2,0,13
+10000,SkipList,ascending,1,0,15
+10000,SkipList,descending,2,0,13
+50000,SkipList,original,9,0,15
+50000,SkipList,ascending,8,0,15
+50000,SkipList,descending,10,0,15
+100000,SkipList,original,20,0,15
+100000,SkipList,ascending,17,0,15
+100000,SkipList,descending,20,0,15
