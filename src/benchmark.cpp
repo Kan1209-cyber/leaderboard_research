@@ -16,15 +16,37 @@ void bstUpdate(BSTNode* n) {
     if (n) n->size = 1 + (n->left ? n->left->size : 0) + (n->right ? n->right->size : 0);
 }
 BSTNode* bstInsert(BSTNode* root, int rating, std::string handle) {
-    if (!root) return new BSTNode(rating, handle);
-    if (rating < root->rating) root->left  = bstInsert(root->left,  rating, handle);
-    else                       root->right = bstInsert(root->right, rating, handle);
-    bstUpdate(root);
+    BSTNode* newNode = new BSTNode(rating, handle);
+    if (!root) return newNode;
+    std::vector<BSTNode*> path;
+    BSTNode* cur = root;
+    while (true) {
+        path.push_back(cur);
+        if (rating < cur->rating) {
+            if (!cur->left) { cur->left = newNode; break; }
+            cur = cur->left;
+        } else {
+            if (!cur->right) { cur->right = newNode; break; }
+            cur = cur->right;
+        }
+    }
+    for (int i = path.size() - 1; i >= 0; i--)
+        bstUpdate(path[i]);
     return root;
 }
 int bstHeight(BSTNode* root) {
     if (!root) return 0;
-    return 1 + std::max(bstHeight(root->left), bstHeight(root->right));
+    int height = 0;
+    std::vector<std::pair<BSTNode*, int>> stack;
+    stack.push_back({root, 1});
+    while (!stack.empty()) {
+        auto [node, depth] = stack.back();
+        stack.pop_back();
+        height = std::max(height, depth);
+        if (node->left)  stack.push_back({node->left,  depth + 1});
+        if (node->right) stack.push_back({node->right, depth + 1});
+    }
+    return height;
 }
 int bstKthMax(BSTNode* root, int k) {
     BSTNode* cur = root;
@@ -38,9 +60,15 @@ int bstKthMax(BSTNode* root, int k) {
 }
 void bstFree(BSTNode* root) {
     if (!root) return;
-    bstFree(root->left);
-    bstFree(root->right);
-    delete root;
+    std::vector<BSTNode*> stack;
+    stack.push_back(root);
+    while (!stack.empty()) {
+        BSTNode* node = stack.back();
+        stack.pop_back();
+        if (node->left)  stack.push_back(node->left);
+        if (node->right) stack.push_back(node->right);
+        delete node;
+    }
 }
 
 // ─── AVL ───────────────────────────────────────────────
@@ -101,9 +129,15 @@ int avlKthMax(AVLNode* root, int k) {
 }
 void avlFree(AVLNode* root) {
     if (!root) return;
-    avlFree(root->left);
-    avlFree(root->right);
-    delete root;
+    std::vector<AVLNode*> stack;
+    stack.push_back(root);
+    while (!stack.empty()) {
+        AVLNode* node = stack.back();
+        stack.pop_back();
+        if (node->left)  stack.push_back(node->left);
+        if (node->right) stack.push_back(node->right);
+        delete node;
+    }
 }
 
 long long median(std::vector<long long> v) {
@@ -129,60 +163,68 @@ int main() {
     }
 
     std::ofstream out("results/benchmark.csv");
-    out << "N,structure,insert_ms,kthmax_us,height" << std::endl;
+    out << "N,structure,data_order,insert_ms,kthmax_us,height" << std::endl;
 
     std::vector<int> sizes = {1000, 5000, 10000, 50000, 100000};
+    std::vector<std::string> orders = {"original", "ascending", "descending"};
 
     for (int N : sizes) {
-        std::cout << "Running N = " << N << std::endl;
-        auto subset = std::vector<std::pair<std::string,int>>(users.begin(), users.begin() + N);
+        for (std::string order : orders) {
+            std::cout << "Running N = " << N << " order = " << order << std::endl;
+            auto subset = std::vector<std::pair<std::string,int>>(users.begin(), users.begin() + N);
 
-        std::vector<long long> bInsertRuns, bQueryRuns;
-        std::vector<long long> aInsertRuns, aQueryRuns;
+            if (order == "ascending")
+                std::sort(subset.begin(), subset.end(), [](auto& a, auto& b){ return a.second < b.second; });
+            else if (order == "descending")
+                std::sort(subset.begin(), subset.end(), [](auto& a, auto& b){ return a.second > b.second; });
 
-        for (int run = 0; run < 10; run++) {
-            std::cout << "  Run " << run+1 << "/10" << std::endl;
+            std::vector<long long> bInsertRuns, bQueryRuns;
+            std::vector<long long> aInsertRuns, aQueryRuns;
 
-            // BST
-            BSTNode* broot = nullptr;
-            auto s = std::chrono::high_resolution_clock::now();
-            for (auto& u : subset) broot = bstInsert(broot, u.second, u.first);
-            auto e = std::chrono::high_resolution_clock::now();
-            bInsertRuns.push_back(std::chrono::duration_cast<std::chrono::milliseconds>(e - s).count());
+            for (int run = 0; run < 10; run++) {
+                std::cout << "  Run " << run+1 << "/10" << std::endl;
 
-            s = std::chrono::high_resolution_clock::now();
-            for (int k = 1; k <= 1000; k++) bstKthMax(broot, k);
-            e = std::chrono::high_resolution_clock::now();
-            bQueryRuns.push_back(std::chrono::duration_cast<std::chrono::microseconds>(e - s).count());
-            bstFree(broot);
+                // BST
+                BSTNode* broot = nullptr;
+                auto s = std::chrono::high_resolution_clock::now();
+                for (auto& u : subset) broot = bstInsert(broot, u.second, u.first);
+                auto e = std::chrono::high_resolution_clock::now();
+                bInsertRuns.push_back(std::chrono::duration_cast<std::chrono::milliseconds>(e - s).count());
 
-            // AVL
-            AVLNode* aroot = nullptr;
-            s = std::chrono::high_resolution_clock::now();
-            for (auto& u : subset) aroot = avlInsert(aroot, u.second, u.first);
-            e = std::chrono::high_resolution_clock::now();
-            aInsertRuns.push_back(std::chrono::duration_cast<std::chrono::milliseconds>(e - s).count());
+                s = std::chrono::high_resolution_clock::now();
+                for (int k = 1; k <= 1000; k++) bstKthMax(broot, k);
+                e = std::chrono::high_resolution_clock::now();
+                bQueryRuns.push_back(std::chrono::duration_cast<std::chrono::microseconds>(e - s).count());
+                bstFree(broot);
 
-            s = std::chrono::high_resolution_clock::now();
-            for (int k = 1; k <= 1000; k++) avlKthMax(aroot, k);
-            e = std::chrono::high_resolution_clock::now();
-            aQueryRuns.push_back(std::chrono::duration_cast<std::chrono::microseconds>(e - s).count());
-            avlFree(aroot);
+                // AVL
+                AVLNode* aroot = nullptr;
+                s = std::chrono::high_resolution_clock::now();
+                for (auto& u : subset) aroot = avlInsert(aroot, u.second, u.first);
+                e = std::chrono::high_resolution_clock::now();
+                aInsertRuns.push_back(std::chrono::duration_cast<std::chrono::milliseconds>(e - s).count());
+
+                s = std::chrono::high_resolution_clock::now();
+                for (int k = 1; k <= 1000; k++) avlKthMax(aroot, k);
+                e = std::chrono::high_resolution_clock::now();
+                aQueryRuns.push_back(std::chrono::duration_cast<std::chrono::microseconds>(e - s).count());
+                avlFree(aroot);
+            }
+
+            // build once for height
+            BSTNode* broot2 = nullptr;
+            for (auto& u : subset) broot2 = bstInsert(broot2, u.second, u.first);
+            int bHeight = bstHeight(broot2);
+            bstFree(broot2);
+
+            AVLNode* aroot2 = nullptr;
+            for (auto& u : subset) aroot2 = avlInsert(aroot2, u.second, u.first);
+            int aHeight = avlHeight(aroot2);
+            avlFree(aroot2);
+
+            out << N << ",BST," << order << "," << median(bInsertRuns) << "," << median(bQueryRuns) << "," << bHeight << std::endl;
+            out << N << ",AVL," << order << "," << median(aInsertRuns) << "," << median(aQueryRuns) << "," << aHeight << std::endl;
         }
-
-        // build once for height
-        BSTNode* broot2 = nullptr;
-        for (auto& u : subset) broot2 = bstInsert(broot2, u.second, u.first);
-        int bHeight = bstHeight(broot2);
-        bstFree(broot2);
-
-        AVLNode* aroot2 = nullptr;
-        for (auto& u : subset) aroot2 = avlInsert(aroot2, u.second, u.first);
-        int aHeight = avlHeight(aroot2);
-        avlFree(aroot2);
-
-        out << N << ",BST," << median(bInsertRuns) << "," << median(bQueryRuns) << "," << bHeight << std::endl;
-        out << N << ",AVL," << median(aInsertRuns) << "," << median(aQueryRuns) << "," << aHeight << std::endl;
     }
 
     std::cout << "Done. Results saved to results/benchmark.csv" << std::endl;
